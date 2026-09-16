@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Readable } from 'stream';
-import type { Url } from 'url';
 
 /** Generic record type for plain objects. */
 export type ObjectOf<T> = Record<string, T>;
@@ -39,8 +38,8 @@ export interface Attachment {
   headers?: Headers;
   /** Attachment content as a string, Buffer, or Readable stream. */
   content?: string | Buffer | Readable;
-  /** File path or URL to read the attachment from. */
-  path?: string | Url;
+  /** File path, URL or data URI to read the attachment from. */
+  path?: string | undefined;
   /** Raw attachment content (bypasses encoding). */
   raw?:
     | string
@@ -48,8 +47,9 @@ export interface Attachment {
     | Readable
     | {
         content?: string | Buffer | Readable | undefined;
-        path?: string | Url | undefined;
-      };
+        path?: string | undefined;
+      }
+    | undefined;
 }
 
 /** An email address with an optional display name. */
@@ -66,26 +66,44 @@ export type MailerFrom = string | MailAddress;
 /** Accepted formats for any address field (single or array). */
 export type MailerAddress = MailerFrom | Array<MailerFrom>;
 
+/** A class constructible with no arguments — an injection token. */
+export type ClassType<Instance = unknown> = new () => Instance;
+
+/** Property name to class token, as `inject` takes it. */
+export type InjectMap = Record<string, ClassType>;
+
+/** The instances an {@link InjectMap} builds, under the same names. */
+export type Injected<Injects extends InjectMap> = {
+  [K in keyof Injects]: Injects[K] extends ClassType<infer Instance> ? Instance : never;
+};
+
 /** Options passed to the transporter's `sendMail` method. */
 export interface SendOptions {
+  /* Every field says `| undefined` so a caller under `exactOptionalPropertyTypes`
+     can pass one it computed as maybe-absent. */
   /** Recipient address(es). */
-  to?: MailerAddress;
+  to?: MailerAddress | undefined;
   /** Sender address. */
-  from?: MailerFrom;
+  from?: MailerFrom | undefined;
   /** Email subject line. */
-  subject?: string;
+  subject?: string | undefined;
   /** CC address(es). */
-  cc?: MailerAddress;
+  cc?: MailerAddress | undefined;
   /** BCC address(es). */
-  bcc?: MailerAddress;
+  bcc?: MailerAddress | undefined;
   /** Reply-to address(es). */
-  replyTo?: MailerAddress;
-  /** List of attachments (file paths or {@link Attachment} objects). */
-  attachments?: Array<string | Attachment>;
+  replyTo?: MailerAddress | undefined;
+  /**
+   * Attachments, as the transport takes them. A file path is written as
+   * `{ path }`; `Message.attachments` accepts the bare string and converts it.
+   */
+  attachments?: Attachment[] | undefined;
   /** Custom email headers. */
-  headers?: ObjectOf<string>;
+  headers?: ObjectOf<string> | undefined;
   /** HTML body content. */
-  html?: string;
+  html?: string | undefined;
+  /** Plain-text alternative to {@link SendOptions.html}. */
+  text?: string | undefined;
 }
 
 /**
@@ -113,10 +131,17 @@ export interface TransportOptions {
   url?: string;
 }
 
-/** Factory interface for creating a {@link TransporterLike} from options. */
+/**
+ * Factory interface for creating a {@link TransporterLike} from options.
+ *
+ * `options` is deliberately loose: Nodemailer's `createTransport` is a set of
+ * overloads, one per transport kind, and a single declared parameter type
+ * matches none of them — which is why passing `nodemailer` straight in used to
+ * need a cast at every call site.
+ */
 export interface DriverLike {
   /** Creates a transporter instance from the given options. */
-  createTransport(options: TransportOptions): TransporterLike;
+  createTransport(options: any): TransporterLike;
 }
 
 /**

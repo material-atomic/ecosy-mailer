@@ -18,7 +18,10 @@ const external = [];
 
 const minifyOptions = {
   compress: {
-    drop_console: true,
+    /* Named methods, not `true`: dropping every console call takes warnings and
+       errors with it, and a package that fails quietly in the build everyone
+       installs is how @ecosy/core lost its cache diagnostics. */
+    drop_console: ["log", "info", "debug"],
     drop_debugger: true,
     pure_funcs: ["console.log", "console.info", "console.debug"],
   },
